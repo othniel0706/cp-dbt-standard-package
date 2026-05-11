@@ -28,7 +28,7 @@ flags:
 
 models:
   +transient: false
-  +catalog_name: "{{ env_var('DBT_SF_DATABASE_CUR', '') }}"
+  +catalog_name: "{{ env_var('DBT_SF_CATALOG_CUR', '') }}"
 
 # Package-level vars for Iceberg catalog config — test if child repos can read these
 vars:
