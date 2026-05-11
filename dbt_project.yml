@@ -29,12 +29,12 @@ flags:
 models:
   +transient: false
 
-# Test: custom namespace key — does dbt allow and propagate unknown keys from packages?
-iceberg_config:
-  enabled: true
-  message: "Hello from cp-dbt-standard-package iceberg_config namespace"
+# Package-level vars for Iceberg catalog config — test if child repos can read these
+vars:
+  iceberg_catalog_cur: "{{ env_var('DBT_SF_DATABASE_CUR', '') }}"
+  iceberg_catalog_con: "{{ env_var('DBT_SF_DATABASE_CON', '') }}"
 
-# Print debug info at the start of every run
+# Debug: print config visibility at the start of every run
 on-run-start:
   - "{{ cp_dbt_standard_package.print_iceberg_config_debug() }}"
 

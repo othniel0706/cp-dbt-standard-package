@@ -1,23 +1,23 @@
 {% macro print_iceberg_config_debug() %}
-    {{ log("=== ICEBERG CONFIG DEBUG ===", info=True) }}
+    {{ log("=== ICEBERG CONFIG DEBUG (from cp-dbt-standard-package) ===", info=True) }}
     {{ log("Project name: " ~ project_name, info=True) }}
 
-    {# Test 1: Can we read the custom 'iceberg_config' namespace from the package? #}
-    {% if var('iceberg_config', none) is not none %}
-        {{ log("iceberg_config via var(): " ~ var('iceberg_config'), info=True) }}
-    {% else %}
-        {{ log("iceberg_config via var(): NOT FOUND", info=True) }}
-    {% endif %}
+    {# Test 1: Can child repo read vars defined in the package's dbt_project.yml? #}
+    {% set catalog_cur = var('iceberg_catalog_cur', 'NOT_FOUND') %}
+    {% set catalog_con = var('iceberg_catalog_con', 'NOT_FOUND') %}
+    {{ log("var('iceberg_catalog_cur'): " ~ catalog_cur, info=True) }}
+    {{ log("var('iceberg_catalog_con'): " ~ catalog_con, info=True) }}
 
-    {# Test 2: Check if flags.enable_iceberg_materializations propagated from package #}
-    {% set iceberg_flag = config.get('enable_iceberg_materializations', none) if config is defined else none %}
-    {{ log("enable_iceberg_materializations via config: " ~ iceberg_flag, info=True) }}
-
-    {# Test 3: Check env vars that would be used for catalog naming #}
+    {# Test 2: Are env vars accessible? (these always work) #}
     {% set db_cur = env_var('DBT_SF_DATABASE_CUR', 'NOT_SET') %}
     {% set db_con = env_var('DBT_SF_DATABASE_CON', 'NOT_SET') %}
-    {{ log("DBT_SF_DATABASE_CUR: " ~ db_cur, info=True) }}
-    {{ log("DBT_SF_DATABASE_CON: " ~ db_con, info=True) }}
+    {{ log("env_var('DBT_SF_DATABASE_CUR'): " ~ db_cur, info=True) }}
+    {{ log("env_var('DBT_SF_DATABASE_CON'): " ~ db_con, info=True) }}
+
+    {# Test 3: Does flags.enable_iceberg_materializations from package propagate? #}
+    {# If it does, dbt will have parsed without errors even though analytics-ex has no flags block #}
+    {{ log("If you see this line, on-run-start hooks from packages execute successfully.", info=True) }}
+    {{ log("Check if models built as Iceberg (flags test) or regular tables (flags did NOT propagate).", info=True) }}
 
     {{ log("=== END ICEBERG CONFIG DEBUG ===", info=True) }}
 {% endmacro %}
