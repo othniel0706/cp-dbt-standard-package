@@ -1,0 +1,21 @@
+catalogs:
+  - name: "{{ env_var('DBT_SF_DATABASE_CUR') }}"
+    active_write_integration: "{{ env_var('DBT_SF_DATABASE_CUR') }}_CATALOG_INT"
+    write_integrations:
+      - name: "{{ env_var('DBT_SF_DATABASE_CUR') }}_CATALOG_INT"
+        external_volume: "{{ env_var('DBT_SF_DATABASE_CUR') }}_EXT_VOL"
+        table_format: iceberg
+        catalog_type: built_in
+        adapter_properties:
+          change_tracking: True
+
+  - name: "{{ env_var('DBT_SF_DATABASE_CON') }}"
+    active_write_integration: "{{ env_var('DBT_SF_DATABASE_CON') }}_CATALOG_INT"
+    write_integrations:
+      - name: "{{ env_var('DBT_SF_DATABASE_CON') }}_CATALOG_INT"
+        external_volume: "{{ env_var('DBT_SF_DATABASE_CON') }}_EXT_VOL"
+        table_format: iceberg
+        catalog_type: built_in
+        adapter_properties:
+          change_tracking: True
+
