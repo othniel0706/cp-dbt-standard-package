@@ -23,8 +23,9 @@ target-path: "target"  # directory which will store compiled SQL files
 clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_modules"
-flags:
-  enable_iceberg_materializations: True
+
+env:
+  DBT_ENABLE_ICEBERG_MATERIALIZATIONS: "True"
 
 models:
   +transient: false
