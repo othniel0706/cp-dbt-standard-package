@@ -16,7 +16,7 @@ model-paths: ["models"]
 macro-paths: ["macros"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
-seed-paths: ["seeds"]
+seed-paths: ["data"]
 snapshot-paths: ["snapshots"]
 
 target-path: "target"  # directory which will store compiled SQL files
@@ -32,8 +32,10 @@ models:
   analytics_ex:
     curated:
       +catalog_name: "{{ env_var('DBT_SF_CATALOG_CUR', '') }}"
+      +enabled: false
     consumption:
       +catalog_name: "{{ env_var('DBT_SF_CATALOG_CON', '') }}"
+      +enabled: false
 
 # Package-level vars for Iceberg catalog config — test if child repos can read these
 vars:
