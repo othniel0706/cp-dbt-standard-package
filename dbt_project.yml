@@ -23,19 +23,14 @@ target-path: "target"  # directory which will store compiled SQL files
 clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_modules"
+  - "test_modules"
 
 flags:
-  enable_iceberg_materializations: True
+  enable_iceberg_materializations: true
 
 models:
+  +enabled: false
   +transient: false
-  analytics_ex:
-    curated:
-      +catalog_name: "{{ env_var('DBT_SF_CATALOG_CUR', '') }}"
-      +enabled: false
-    consumption:
-      +catalog_name: "{{ env_var('DBT_SF_CATALOG_CON', '') }}"
-      +enabled: false
 
 # Package-level vars for Iceberg catalog config — test if child repos can read these
 vars:
