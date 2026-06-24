@@ -1,75 +1,91 @@
 {#
 ===============================================================================
 MACRO FILE: iceberg_overrides.sql
-PURPOSE:    Globally intercepts dbt's native Snowflake materialization macros to 
-            enforce Apache Iceberg type safety and bypass strict contract errors.
+PURPOSE:    Intercepts dbt's native Snowflake materialization macros to enforce
+            Apache Iceberg type safety and bypass Iceberg-specific contract errors.
+            All contract bypasses (Sections 1 & 4) are scoped to Iceberg models
+            only so that non-Iceberg models with contract: enforced continue to
+            validate correctly.
 ===============================================================================
 #}
 
 {# ============================================================================
-   SECTION 1: THE DDL NUKE (Bypass YAML Contract Injection)
+   SECTION 1: DDL CONTRACT BYPASS (Iceberg models only)
+   Iceberg CTAS does not support inline column constraints (NOT NULL, etc.).
+   For non-Iceberg models, delegates to native dbt behaviour so that
+   contract: enforced models continue to inject DDL constraints correctly.
    ============================================================================ #}
 
 {% macro get_table_columns_and_constraints() %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__get_table_columns_and_constraints()) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro default__get_table_columns_and_constraints() %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__get_table_columns_and_constraints()) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro snowflake__get_table_columns_and_constraints() %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__get_table_columns_and_constraints()) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro render_raw_columns_constraints(raw_columns) %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__render_raw_columns_constraints(raw_columns)) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro default__render_raw_columns_constraints(raw_columns) %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__render_raw_columns_constraints(raw_columns)) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro snowflake__render_raw_columns_constraints(raw_columns) %}
-    {{ return('') }}
-{% endmacro %}
-
-
-{# ============================================================================
-   SECTION 2: INCREMENTAL STAGING OVERRIDE (Fixes the Array Mismatch)
-   ============================================================================ #}
-
-{% macro snowflake__get_tmp_relation_type(strategy, unique_key, language) %}
-    {%- set catalog_relation = adapter.build_catalog_relation(config.model) -%}
-        {%- if catalog_relation is not none and catalog_relation.catalog_type == 'BUILT_IN' -%}
-            {{ return("table") }}
-        {%- endif -%}
-
-    {#-- Catch Iceberg models if catalog_relation fails to build --#}
-    {%- if config.get('catalog_name') is not none or config.get('table_format') == 'iceberg' -%}
-        {{ return("table") }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__render_raw_columns_constraints(raw_columns)) }}
     {%- endif -%}
-
-    {#-- For non-Iceberg models, use native logic --#}
-    {%- set tmp_relation_type = config.get('tmp_relation_type') -%}
-
-    {% if snowflake__is_catalog_linked_database(relation=config.model) %}
-        {{ return("table") }}
-    {% endif %}
-
-    {% if language != "sql" %}
-        {{ return("table") }}
-    {% elif tmp_relation_type == "table" %}
-        {{ return("table") }}
-    {% elif tmp_relation_type == "view" %}
-        {{ return("view") }}
-    {% elif strategy in ("default", "merge", "append", "insert_overwrite") %}
-        {{ return("view") }}
-    {% elif strategy in ["delete+insert", "microbatch"] and unique_key is none %}
-        {{ return("view") }}
-    {% else %}
-        {{ return("table") }}
-    {% endif %}
 {% endmacro %}
 
 
@@ -160,7 +176,7 @@ PURPOSE:    Globally intercepts dbt's native Snowflake materialization macros to
         {%- set col_name = row['name'] -%}
         {%- set col_type = row['type'] | string | upper -%}
 
-        {%- if 'ARRAY' in col_type or 'OBJECT' in col_type or 'VARIANT' in col_type -%}
+        {%- if 'ARRAY' in col_type or 'OBJECT' in col_type -%}
             {%- do has_unsupported.append(col_name) -%}
             {%- do wrapped_cols.append('CAST(TO_JSON("' ~ col_name ~ '") AS VARCHAR(16777216)) AS "' ~ col_name ~ '"') -%}
         {%- else -%}
@@ -194,9 +210,9 @@ PURPOSE:    Globally intercepts dbt's native Snowflake materialization macros to
     or config.get('table_format', '') | lower == 'iceberg'
 ) -%}
 {%- set upper_type = new_column_type | upper -%}
-{%- set is_unsupported_type = ('VARIANT' in upper_type or 'ARRAY' in upper_type or 'OBJECT' in upper_type) -%}
+{%- set is_unsupported_type = ('ARRAY' in upper_type or 'OBJECT' in upper_type) -%}
 {%- if is_iceberg and is_unsupported_type -%}
-    {#-- Skip ALTER only for Iceberg-unsupported types (VARIANT/ARRAY/OBJECT).
+    {#-- Skip ALTER only for Iceberg-unsupported types (untyped ARRAY/OBJECT).
          These are phantom mismatches from the staging view's native types;
          the actual casting is handled at MERGE time by the get_merge_sql override. --#}
     {{ log("Iceberg: skipping ALTER COLUMN TYPE for " ~ column_name ~ " to " ~ new_column_type ~ " (unsupported Iceberg type)", info=True) }}
@@ -207,19 +223,47 @@ PURPOSE:    Globally intercepts dbt's native Snowflake materialization macros to
 
 
 {# ============================================================================
-   SECTION 4: CONTRACT MISMATCH BYPASS (Silence Python validation)
+   SECTION 4: CONTRACT MISMATCH BYPASS (Iceberg models only)
+   iceberg_type_safe_wrap converts TIMESTAMP_TZ → TIMESTAMP_LTZ and caps
+   VARCHAR lengths, causing dbt's column assertion to false-fail on Iceberg
+   models. This bypass is scoped to Iceberg only so that non-Iceberg models
+   with contract: enforced (e.g. timestamp_tz columns) continue to validate.
    ============================================================================ #}
 
 {% macro get_assert_columns_equivalent(ddl_dict) %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__get_assert_columns_equivalent(ddl_dict)) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro default__get_assert_columns_equivalent(ddl_dict) %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__get_assert_columns_equivalent(ddl_dict)) }}
+    {%- endif -%}
 {% endmacro %}
 
 {% macro snowflake__get_assert_columns_equivalent(ddl_dict) %}
-    {{ return('') }}
+    {%- set is_iceberg = (
+        config.get('catalog_name') is not none
+        or config.get('table_format', '') | lower == 'iceberg'
+    ) -%}
+    {%- if is_iceberg -%}
+        {{ return('') }}
+    {%- else -%}
+        {{ return(dbt.default__get_assert_columns_equivalent(ddl_dict)) }}
+    {%- endif -%}
 {% endmacro %}
 
 
@@ -251,7 +295,7 @@ PURPOSE:    Globally intercepts dbt's native Snowflake materialization macros to
             
             {%- set is_unspecified_number = ('NUMBER' in col_type or 'DECIMAL' in col_type or 'NUMERIC' in col_type) and ('(' not in col_type or '38,0' in stripped_type) -%}
             
-            {%- if 'TIMESTAMP' in col_type or 'TIME' in col_type or 'VARCHAR' in col_type or 'STRING' in col_type or is_unspecified_number or 'VARIANT' in col_type or 'ARRAY' in col_type or 'OBJECT' in col_type -%}
+            {%- if 'TIMESTAMP' in col_type or 'TIME' in col_type or 'VARCHAR' in col_type or 'STRING' in col_type or is_unspecified_number or 'ARRAY' in col_type or 'OBJECT' in col_type -%}
                 {%- do needs_casting.append(col_name) -%}
             {%- endif -%}
             {%- do final_columns.append({'name': col_name, 'type': col_type}) -%}
@@ -287,8 +331,6 @@ PURPOSE:    Globally intercepts dbt's native Snowflake materialization macros to
                 CAST("{{ col_name }}" AS TIMESTAMP_NTZ(6)) AS "{{ col_name }}"
             {%- elif 'TIME' in col_type -%}
                 CAST("{{ col_name }}" AS TIME(6)) AS "{{ col_name }}"
-            {%- elif 'VARIANT' in col_type -%}
-                CAST(TO_JSON("{{ col_name }}") AS VARCHAR(16777216)) AS "{{ col_name }}"
             {%- elif 'ARRAY' in col_type -%}
                 CAST(TO_JSON("{{ col_name }}") AS VARCHAR(16777216)) AS "{{ col_name }}"
             {%- elif 'OBJECT' in col_type -%}
